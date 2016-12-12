@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="http://cdn.datatables.net/1.10.13/css/jquery.dataTables.min.css" />
+    <script
+            src="https://code.jquery.com/jquery-3.1.1.min.js"
+            integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+            crossorigin="anonymous"></script>
+    <script type="text/javascript" src="http://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function() {
+
+            /************ settings */
+            let threshold = 40;
+            let myCategories = ['Daily Deals',"Electronics","Imports","Toys","Baby","Home & Kitchen","Computers","TV, Audio & Video","Specials","Christmas"]; //,"Cellular & GPS","Movies & TV","Fashion","Books","Music","Garden, Pool & Patio","Health & Beauty","Office & Stationery","Sport","Camping & Outdoor","Pets","Gaming","Cameras","Luggage & Travel","World Cup Shop","Vouchers"];
+            /************ end */
+
+
+
+            
+            let cats = {'Daily Deals':0,"Electronics":4,"Imports":6,"Toys":7,"Baby":10,"Home & Kitchen":12,"Computers":13,"TV, Audio & Video":15,"Specials":20,"Christmas":22,"Cellular & GPS":16,"Movies & TV":1,"Fashion":25,"Books":3,"Music":5,"Garden, Pool & Patio":23,"Health & Beauty":8,"Office & Stationery":18,"Sport":11,"Camping & Outdoor":21,"Pets":17,"Gaming":2,"Cameras":14,"Luggage & Travel":19,"World Cup Shop":27,"Vouchers":9};
+
+            let catMap = myCategories;
+            let categories = catMap.map(function(cat){
+                return cats[cat];
+            });
+
+            let current = 0;
+            let category = 0;
+
+            let ret = [];
+
+                $('#progress').html('Discount threshold set to '+threshold+'%<br />Category progress: ' + category + '/' + categories.length+'<br />Currently loading category: "'+catMap[category]+'" from Takealot');
+            function go() {
+                url = 'https://api.takealot.com/rest/v-1-4-4/productlines/search?sort=Price%20Descending&rows=100&start='+(current*100)+'&detail=mlisting&backend=fbye-snprg-pyvrag&filter=Type:'+categories[category]+'&filter=Available:true&filter=SpecialsPage:true&callback=type';
+                $.ajax(url,{complete:function(jqXHR){
+                    if(jqXHR.readyState === 4) {
+                        current++;
+                        let res = JSON.parse(jqXHR.responseText.replace(/^[^(]*\(|\)[^)]*$/g,'').replace(/:\\"([^\\]*)\\"",/g,':$1",'));
+
+                        if (res.results.productlines<100) {
+                            category++;
+                            current=0;
+                            $('#progress').html('Discount threshold set to '+threshold+'%<br />Category progress: ' + category + '/' + categories.length+'<br />Currently loading category: "'+catMap[category]+'" from Takealot');
+                            if (category < categories.length)
+                                window.setTimeout(go,1);
+                            else
+                                finish();
+                            return;
+                        }
+
+                        res.results.productlines.forEach(function(product){
+                            let saving = product.saving?product.saving.replace(/[^\d]+/g,'')/1:0;
+                            if (saving >= threshold) {
+                                let price = 'R' + Math.floor(product.web_selling_price / 100);
+                                let title = product.title;
+                                let url = product.uri;
+                                ret.push({saving, price, title, url,category,image:product.image&&product.image.small?product.image.small:''});
+                            }
+                        });
+                        window.setTimeout(go,1);
+                    }
+                }});
+            }
+            go();
+
+            let finish = function() {
+                $('#progress').hide();
+
+                let data = [];
+
+                ret.forEach(function(product){
+                    let cat = catMap[product.category];
+                    product.category = cat;
+                    data.push(product);
+                });
+
+                data = data.map(function(obj){
+                    obj.discounted = 'R'+Math.floor(obj.price.replace(/[^\d]+/g,'')/(100-obj.saving)*obj.saving);
+                    return obj;
+                });
+
+                $('#test').DataTable({
+                    data: data,
+                    columnDefs: [
+                        {
+                            render: function ( data, type, row ) {
+                                return '<img src="'+data+'" />';
+                            },
+                            targets: 0
+                        },
+                        {
+                            render: function ( data, type, row ) {
+                                return data+'%';
+                            },
+                            targets: 4
+                        },
+                        {
+                            render: function ( data, type, row ) {
+                                return '<a target="_blank" href="'+data+'">Link</a>';
+                            },
+                            targets: 6
+                        }
+                    ],
+                    columns: [
+                        {data: 'image',title:'image'},
+                        {data: 'title',title:'title'},
+                        {data: 'price',title:'price'},
+                        {data: 'discounted',title:'discounted'},
+                        {data: 'saving',title:'saving'},
+                        {data: 'category',title:'category'},
+                        {data: 'url',title:'url'}
+                    ]
+                });
+            };
+        });
+    </script>
+</head>
+<body>
+<div id="progress"></div>
+<table id="test">
+
+</table>
+</body>
+</html>
