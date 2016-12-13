@@ -12,113 +12,214 @@
     <script type="text/javascript">
         $(document).ready(function() {
 
-            /************ settings */
-            let threshold = 40;
-            let myCategories = ['Daily Deals',"Electronics","Imports","Toys","Baby","Home & Kitchen","Computers","TV, Audio & Video","Specials","Christmas"]; //,"Cellular & GPS","Movies & TV","Fashion","Books","Music","Garden, Pool & Patio","Health & Beauty","Office & Stationery","Sport","Camping & Outdoor","Pets","Gaming","Cameras","Luggage & Travel","World Cup Shop","Vouchers"];
-            /************ end */
-
-
-
-            
-            let cats = {'Daily Deals':0,"Electronics":4,"Imports":6,"Toys":7,"Baby":10,"Home & Kitchen":12,"Computers":13,"TV, Audio & Video":15,"Specials":20,"Christmas":22,"Cellular & GPS":16,"Movies & TV":1,"Fashion":25,"Books":3,"Music":5,"Garden, Pool & Patio":23,"Health & Beauty":8,"Office & Stationery":18,"Sport":11,"Camping & Outdoor":21,"Pets":17,"Gaming":2,"Cameras":14,"Luggage & Travel":19,"World Cup Shop":27,"Vouchers":9};
-
-            let catMap = myCategories;
-            let categories = catMap.map(function(cat){
-                return cats[cat];
+            $('#discount').val(localStorage.getItem("devblazer.github.io.takealot.threshold"));
+            (JSON.parse(localStorage.getItem("devblazer.github.io.takealot.categories")||"[]")||[]).forEach(function(item){
+                $('[name="categories"][value="'+item+'"]').prop("checked",true);
             });
 
-            let current = 0;
-            let category = 0;
+            $('#go').on('click',function() {
+                let threshold = $('#discount').val();
+                let myCategories = [];
 
-            let ret = [];
+                $('[name="categories"]').each(function () {
+                    if ($(this).is(':checked'))
+                        myCategories.push($(this).val());
+                });
+                localStorage.setItem("devblazer.github.io.takealot.threshold", threshold);
+                localStorage.setItem("devblazer.github.io.takealot.categories", JSON.stringify(myCategories));
 
-                $('#progress').html('Discount threshold set to '+threshold+'%<br />Category progress: ' + category + '/' + categories.length+'<br />Currently loading category: "'+catMap[category]+'" from Takealot');
-            function go() {
-                url = 'https://api.takealot.com/rest/v-1-4-4/productlines/search?sort=Price%20Descending&rows=100&start='+(current*100)+'&detail=mlisting&backend=fbye-snprg-pyvrag&filter=Type:'+categories[category]+'&filter=Available:true&filter=SpecialsPage:true&callback=type';
-                $.ajax(url,{complete:function(jqXHR){
-                    if(jqXHR.readyState === 4) {
-                        current++;
-                        let res = JSON.parse(jqXHR.responseText.replace(/^[^(]*\(|\)[^)]*$/g,'').replace(/:\\"([^\\]*)\\"",/g,':$1",'));
+                $('#selection').hide();
 
-                        if (res.results.productlines<100) {
-                            category++;
-                            current=0;
-                            $('#progress').html('Discount threshold set to '+threshold+'%<br />Category progress: ' + category + '/' + categories.length+'<br />Currently loading category: "'+catMap[category]+'" from Takealot');
-                            if (category < categories.length)
-                                window.setTimeout(go,1);
-                            else
-                                finish();
-                            return;
-                        }
+                let cats = {
+                    'Daily Deals': 0,
+                    "Electronics": 4,
+                    "Imports": 6,
+                    "Toys": 7,
+                    "Baby": 10,
+                    "Home & Kitchen": 12,
+                    "Computers": 13,
+                    "TV, Audio & Video": 15,
+                    "Specials": 20,
+                    "Christmas": 22,
+                    "Cellular & GPS": 16,
+                    "Movies & TV": 1,
+                    "Fashion": 25,
+                    "Books": 3,
+                    "Music": 5,
+                    "Garden, Pool & Patio": 23,
+                    "Health & Beauty": 8,
+                    "Office & Stationery": 18,
+                    "Sport": 11,
+                    "Camping & Outdoor": 21,
+                    "Pets": 17,
+                    "Gaming": 2,
+                    "Cameras": 14,
+                    "Luggage & Travel": 19,
+                    "World Cup Shop": 27,
+                    "Vouchers": 9
+                };
 
-                        res.results.productlines.forEach(function(product){
-                            let saving = product.saving?product.saving.replace(/[^\d]+/g,'')/1:0;
-                            if (saving >= threshold) {
-                                let price = 'R' + Math.floor(product.web_selling_price / 100);
-                                let title = product.title;
-                                let url = product.uri;
-                                ret.push({saving, price, title, url,category,image:product.image&&product.image.small?product.image.small:''});
+                let catMap = myCategories;
+                let categories = catMap.map(function (cat) {
+                    return cats[cat];
+                });
+
+                let current = 0;
+                let category = 0;
+                let currentFilter = 0;
+
+                let ret = [];
+                let filters = ['SpecialsPage:true', 'Sellers:11610'];
+
+                $('#progress').html('Discount threshold set to ' + threshold + '%<br />Category progress: ' + (categories.length * currentFilter + category) + '/' + (categories.length * filters.length) + '<br />Currently loading category: "' + catMap[category] + '" from Takealot');
+                function go() {
+                    url = 'https://api.takealot.com/rest/v-1-4-4/productlines/search?sort=Price%20Descending&rows=100&start=' + (current * 100) + '&detail=mlisting&backend=fbye-snprg-pyvrag&filter=Type:' + categories[category] + '&filter=Available:true&filter=' + filters[currentFilter] + '&callback=type';
+                    $.ajax(url, {
+                        complete: function (jqXHR) {
+                            if (jqXHR.readyState === 4) {
+                                current++;
+                                let res = JSON.parse(jqXHR.responseText.replace(/^[^(]*\(|\)[^)]*$/g, '').replace(/:\\"([^\\]*)\\"",/g, ':$1",'));
+
+                                if (res.results.productlines < 100) {
+                                    category++;
+                                    current = 0;
+                                    $('#progress').html('Discount threshold set to ' + threshold + '%<br />Category progress: ' + (categories.length * currentFilter + category) + '/' + (categories.length * filters.length) + '<br />Currently loading category: "' + catMap[category] + '" from Takealot');
+                                    if (category < categories.length)
+                                        window.setTimeout(go, 1);
+                                    else {
+                                        currentFilter++;
+                                        if (currentFilter < filters.length) {
+                                            category = 0;
+                                            window.setTimeout(go, 1);
+                                        }
+                                        else
+                                            finish();
+                                    }
+                                    return;
+                                }
+
+                                res.results.productlines.forEach(function (product) {
+                                    let saving = product.saving ? product.saving.replace(/[^\d]+/g, '') / 1 : 0;
+                                    if (saving >= threshold) {
+                                        let price = 'R' + Math.floor(product.web_selling_price / 100);
+                                        let title = product.title;
+                                        let url = product.uri;
+                                        let unboxed = false;
+                                        if (currentFilter == 1 && product.buybox_used && product.buybox_used.min_price && product.buybox_used.min_price < product.web_selling_price) {
+                                            unboxed = true;
+                                            price = 'R'+product.buybox_used.min_price;
+                                            url += '/offers#unboxed'
+                                        }
+                                        ret.push({
+                                            unboxed,
+                                            saving,
+                                            price,
+                                            title,
+                                            url,
+                                            category,
+                                            image: product.image && product.image.small ? product.image.small : ''
+                                        });
+                                    }
+                                });
+                                window.setTimeout(go, 1);
                             }
-                        });
-                        window.setTimeout(go,1);
-                    }
-                }});
-            }
-            go();
-
-            let finish = function() {
-                $('#progress').hide();
-
-                let data = [];
-
-                ret.forEach(function(product){
-                    let cat = catMap[product.category];
-                    product.category = cat;
-                    data.push(product);
-                });
-
-                data = data.map(function(obj){
-                    obj.discounted = 'R'+Math.floor(obj.price.replace(/[^\d]+/g,'')/(100-obj.saving)*obj.saving);
-                    return obj;
-                });
-
-                $('#test').DataTable({
-                    data: data,
-                    columnDefs: [
-                        {
-                            render: function ( data, type, row ) {
-                                return '<img src="'+data+'" />';
-                            },
-                            targets: 0
-                        },
-                        {
-                            render: function ( data, type, row ) {
-                                return data+'%';
-                            },
-                            targets: 4
-                        },
-                        {
-                            render: function ( data, type, row ) {
-                                return '<a target="_blank" href="'+data+'">Link</a>';
-                            },
-                            targets: 6
                         }
-                    ],
-                    columns: [
-                        {data: 'image',title:'image'},
-                        {data: 'title',title:'title'},
-                        {data: 'price',title:'price'},
-                        {data: 'discounted',title:'discounted'},
-                        {data: 'saving',title:'saving'},
-                        {data: 'category',title:'category'},
-                        {data: 'url',title:'url'}
-                    ]
-                });
-            };
+                    });
+                }
+
+                go();
+
+                let finish = function () {
+                    $('#progress').hide();
+
+                    let data = [];
+
+                    ret.forEach(function (product) {
+                        let cat = catMap[product.category];
+                        product.category = cat;
+                        data.push(product);
+                    });
+
+                    data = data.map(function (obj) {
+                        obj.discounted = 'R' + Math.floor(obj.price.replace(/[^\d]+/g, '') / (100 - obj.saving) * obj.saving);
+                        return obj;
+                    });
+console.log(data);
+                    $('#test').DataTable({
+                        data: data,
+                        columnDefs: [
+                            {
+                                render: function (data, type, row) {
+                                    return '<img src="' + data + '" />';
+                                },
+                                targets: 0
+                            },
+                            {
+                                render: function (data, type, row) {
+                                    return data + '%';
+                                },
+                                targets: 4
+                            },
+                            {
+                                render: function (data, type, row) {
+                                    return data ? 'yes' : 'no';
+                                },
+                                targets: 5
+                            },
+                            {
+                                render: function (data, type, row) {
+                                    return '<a target="_blank" href="' + data + '">Link</a>';
+                                },
+                                targets: 7
+                            }
+                        ],
+                        columns: [
+                            {data: 'image', title: 'image'},
+                            {data: 'title', title: 'title'},
+                            {data: 'price', title: 'price'},
+                            {data: 'discounted', title: 'discounted'},
+                            {data: 'saving', title: 'saving'},
+                            {data: 'unboxed', title: 'unboxed'},
+                            {data: 'category', title: 'category'},
+                            {data: 'url', title: 'url'}
+                        ]
+                    });
+                };
+            });
         });
     </script>
 </head>
 <body>
+<div id="selection">
+    <input id="discount" placeholder="minimum discount as % (recommend: 40 )" style="width:250px" /><br />
+    <input type="checkbox" name="categories" value="Daily Deals" />Daily Deals<br />
+    <input type="checkbox" name="categories" value="Electronics" />Electronics<br />
+    <input type="checkbox" name="categories" value="Imports" />Imports<br />
+    <input type="checkbox" name="categories" value="Toys" />Toys<br />
+    <input type="checkbox" name="categories" value="Baby" />Baby<br />
+    <input type="checkbox" name="categories" value="Home & Kitchen" />Home & Kitchen<br />
+    <input type="checkbox" name="categories" value="Computers" />Computers<br />
+    <input type="checkbox" name="categories" value="TV, Audio & Video" />TV, Audio & Video<br />
+    <input type="checkbox" name="categories" value="Specials" />Specials<br />
+    <input type="checkbox" name="categories" value="Christmas" />Christmas<br />
+    <input type="checkbox" name="categories" value="Cellular & GPS" />Cellular & GPS<br />
+    <input type="checkbox" name="categories" value="Movies & TV" />Movies & TV<br />
+    <input type="checkbox" name="categories" value="Fashion" />Fashion<br />
+    <input type="checkbox" name="categories" value="Books" />Books<br />
+    <input type="checkbox" name="categories" value="Music" />Music<br />
+    <input type="checkbox" name="categories" value="Garden, Pool & Patio" />Garden, Pool & Patio<br />
+    <input type="checkbox" name="categories" value="Health & Beauty" />Health & Beauty<br />
+    <input type="checkbox" name="categories" value="Office & Stationery" />Office & Stationery<br />
+    <input type="checkbox" name="categories" value="Sport" />Sport<br />
+    <input type="checkbox" name="categories" value="Camping & Outdoor" />Camping & Outdoor<br />
+    <input type="checkbox" name="categories" value="Pets" />Pets<br />
+    <input type="checkbox" name="categories" value="Gaming" />Gaming<br />
+    <input type="checkbox" name="categories" value="Cameras" />Cameras<br />
+    <input type="checkbox" name="categories" value="Luggage & Travel" />Luggage & Travel<br />
+    <input type="checkbox" name="categories" value="World Cup Shop" />World Cup Shop<br />
+    <input type="checkbox" name="categories" value="Vouchers" />Vouchers<br /><br />
+    <a id="go">Start Search</a>
+</div>
 <div id="progress"></div>
 <table id="test">
 
